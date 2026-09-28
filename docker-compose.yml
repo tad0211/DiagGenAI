@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: diaggenai-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - SIMULATION_MODE=true
+      - SAFETY_BANNER=SIMULATION MODE — NO REAL ECU CONNECTION
+      - DATABASE_URL=sqlite:///./data/diaggenai.db
+      - CHROMA_PERSIST_DIRECTORY=./data/chroma
+      - LLM_PROVIDER=mock
+      - GRAPH_ENGINE=networkx
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=diaggenai_secret
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    container_name: diaggenai-frontend
+    command: streamlit run frontend/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.18.0
+    container_name: diaggenai-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/diaggenai_secret
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
